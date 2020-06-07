@@ -52,6 +52,7 @@ interface REState {
     value: string;
     richValue: JSX.Element|null;
     textWidth: number;
+    mouseDownPos: number;
 }
 
 const getTextWidth = (text: string, font: string) => {
@@ -86,7 +87,8 @@ class RichEditor extends React.Component<REProps, REState> {
         super(props);
 
         this.onChange = this.onChange.bind(this);
-        this.onClick = this.onClick.bind(this);
+        this.onMouseUp = this.onMouseUp.bind(this);
+        this.onMouseDown = this.onMouseDown.bind(this);
 
         this.textInput = React.createRef();
 
@@ -94,6 +96,7 @@ class RichEditor extends React.Component<REProps, REState> {
             value: props.defaultValue || '',
             richValue: null,
             textWidth: 0,
+            mouseDownPos: 0,
         };
     }
 
@@ -156,13 +159,14 @@ class RichEditor extends React.Component<REProps, REState> {
     }
 
     /**
-     * When the display div is clicked.
-     * @param e The change event.
+     * Get the cursor position for a given mouse event.
+     * @param e The mouse event.
+     * @returns {number}
      */
-    onClick(e: any) {
+    getPositionOnMouseEvent(e: any) {
         const style = getComputedStyle(this.textInput.current);
         const styleWidth: number = parseDimension(style.width);
-        const styleHeight: number = parseDimension(style.height);
+        //const styleHeight: number = parseDimension(style.height);
 
         // Get the number of rows in the textarea.
         const rows = Math.ceil(this.state.textWidth / styleWidth);
@@ -188,11 +192,32 @@ class RichEditor extends React.Component<REProps, REState> {
         const clickRow = Math.floor(clickY / charHeight);
         console.log('[INFO]', clickCol, clickRow);
 
-        const selectionEnd = clickCol + clickRow * charPerRow;
+        return clickCol + clickRow * charPerRow;
+    }
+
+    /**
+     * When the display div is clicked.
+     * @param e The change event.
+     */
+    onMouseDown(e: any) {
+        this.setState({
+            mouseDownPos: this.getPositionOnMouseEvent(e),
+        });
+    }
+
+    /**
+     * When the display div is clicked.
+     * @param e The change event.
+     */
+    onMouseUp(e: any) {
+        const mouseUpPos = this.getPositionOnMouseEvent(e);
+        const mouseDownPos = this.state.mouseDownPos;
 
         this.textInput.current.focus();
-        this.textInput.current.selectionStart = selectionEnd;
-        this.textInput.current.selectionEnd = selectionEnd;
+        this.textInput.current.selectionStart = mouseUpPos > mouseDownPos ? mouseDownPos : mouseUpPos;
+        this.textInput.current.selectionEnd = mouseUpPos > mouseDownPos ? mouseUpPos : mouseDownPos;
+
+        this.setState({ mouseDownPos: 0 });
     }
 
     /**
@@ -206,7 +231,7 @@ class RichEditor extends React.Component<REProps, REState> {
                     onChange={this.onChange}
                     ref={this.textInput}
                 />
-                <DisplayBlock onClick={this.onClick}>
+                <DisplayBlock onMouseUp={this.onMouseUp} onMouseDown={this.onMouseDown}>
                     {this.state.richValue}
                 </DisplayBlock>
                 {/* <div style={{
